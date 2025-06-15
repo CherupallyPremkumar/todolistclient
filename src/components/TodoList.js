@@ -17,9 +17,14 @@ import {
   ListItemSecondaryAction,
   IconButton,
   Checkbox,
-  Zoom
+  Zoom,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Fab
 } from '@mui/material';
-import { Delete as DeleteIcon, Edit as EditIcon, Save as SaveIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon, Edit as EditIcon, Save as SaveIcon, Add as AddIcon } from '@mui/icons-material';
 import axios from 'axios';
 
 const BASE_URL = 'https://todolist-avu8.onrender.com';
@@ -38,6 +43,8 @@ const TodoList = () => {
     severity: 'success'
   });
   const [actionLoading, setActionLoading] = useState({ id: null, action: null });
+  const [openDialog, setOpenDialog] = useState(false);
+  const [dialogMode, setDialogMode] = useState('add'); // 'add' or 'edit'
 
   useEffect(() => {
     fetchTasks();
@@ -59,11 +66,30 @@ const TodoList = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (editingTask) {
-      setEditingTask({ ...editingTask, [name]: value });
+    if (dialogMode === 'edit' && editingTask) {
+      setEditingTask(prev => ({ ...prev, [name]: value }));
     } else {
-      setNewTask({ ...newTask, [name]: value });
+      setNewTask(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  const handleOpenDialog = (mode = 'add', task = null) => {
+    setDialogMode(mode);
+    if (mode === 'edit' && task) {
+      setEditingTask({ ...task });
+      setNewTask({ title: task.title, description: task.description || '' });
+    } else {
+      setEditingTask(null);
+      setNewTask({ title: '', description: '' });
+    }
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setNewTask({ title: '', description: '' });
+    setEditingTask(null);
+    setDialogMode('add');
   };
 
   const handleSubmit = async (e) => {
@@ -82,6 +108,7 @@ const TodoList = () => {
       // Update with real data
       setTasks(prev => prev.map(task => task._id === tempId ? response.data : task));
       setNewTask({ title: '', description: '' });
+      handleCloseDialog();
       showSnackbar('Task added successfully');
     } catch (err) {
       // Revert optimistic update
@@ -139,27 +166,31 @@ const TodoList = () => {
   };
 
   const handleEdit = (task) => {
-    setEditingTask(task);
-    setNewTask({ title: task.title, description: task.description });
+    handleOpenDialog('edit', task);
   };
 
-  const handleSaveEdit = async () => {
-    if (!editingTask.title.trim()) return;
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    if (!editingTask || !editingTask.title.trim()) return;
 
     try {
       setActionLoading({ id: editingTask._id, action: 'edit' });
       // Optimistic update
       setTasks(prev => prev.map(t => 
-        t._id === editingTask._id ? { ...t, ...editingTask } : t
+        t._id === editingTask._id ? { ...t, title: editingTask.title, description: editingTask.description } : t
       ));
 
-      await axios.patch(`${API_URL}/${editingTask._id}`, {
+      const response = await axios.patch(`${API_URL}/${editingTask._id}`, {
         title: editingTask.title,
         description: editingTask.description
       });
 
-      setEditingTask(null);
-      setNewTask({ title: '', description: '' });
+      // Update with server response
+      setTasks(prev => prev.map(t => 
+        t._id === editingTask._id ? response.data : t
+      ));
+
+      handleCloseDialog();
       showSnackbar('Task updated successfully');
     } catch (err) {
       // Revert optimistic update
@@ -169,11 +200,6 @@ const TodoList = () => {
     } finally {
       setActionLoading({ id: null, action: null });
     }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingTask(null);
-    setNewTask({ title: '', description: '' });
   };
 
   const showSnackbar = (message, severity = 'success') => {
@@ -211,72 +237,6 @@ const TodoList = () => {
       >
         Todo List
       </Typography>
-
-      <Paper elevation={3} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-        <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label="Task Title"
-            name="title"
-            value={newTask.title}
-            onChange={handleInputChange}
-            margin="normal"
-            required
-            disabled={!!editingTask}
-            sx={{ mb: 2 }}
-            variant="outlined"
-          />
-          <TextField
-            fullWidth
-            label="Description (optional)"
-            name="description"
-            value={newTask.description}
-            onChange={handleInputChange}
-            margin="normal"
-            multiline
-            rows={2}
-            disabled={!!editingTask}
-            sx={{ mb: 2 }}
-            variant="outlined"
-          />
-          <Box mt={2} display="flex" gap={2}>
-            {editingTask ? (
-              <>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSaveEdit}
-                  disabled={actionLoading.id === editingTask._id}
-                  startIcon={actionLoading.id === editingTask._id ? <CircularProgress size={20} /> : <SaveIcon />}
-                  sx={{ minWidth: 100 }}
-                >
-                  Save
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={handleCancelEdit}
-                  disabled={actionLoading.id === editingTask._id}
-                  sx={{ minWidth: 100 }}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <Button
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={actionLoading.id === 'new'}
-                startIcon={actionLoading.id === 'new' ? <CircularProgress size={20} /> : null}
-                sx={{ minWidth: 120 }}
-              >
-                Add Task
-              </Button>
-            )}
-          </Box>
-        </form>
-      </Paper>
 
       {error && (
         <Alert 
@@ -385,6 +345,74 @@ const TodoList = () => {
           </ListItem>
         ))}
       </List>
+
+      <Fab
+        color="primary"
+        aria-label="add"
+        onClick={() => handleOpenDialog('add')}
+        sx={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          '&:hover': {
+            transform: 'scale(1.1)',
+          },
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <AddIcon />
+      </Fab>
+
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {dialogMode === 'add' ? 'Add New Task' : 'Edit Task'}
+        </DialogTitle>
+        <form onSubmit={dialogMode === 'add' ? handleSubmit : handleSaveEdit}>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Task Title"
+              name="title"
+              value={dialogMode === 'add' ? newTask.title : (editingTask?.title || '')}
+              onChange={handleInputChange}
+              margin="normal"
+              required
+              autoFocus
+              variant="outlined"
+            />
+            <TextField
+              fullWidth
+              label="Description (optional)"
+              name="description"
+              value={dialogMode === 'add' ? newTask.description : (editingTask?.description || '')}
+              onChange={handleInputChange}
+              margin="normal"
+              multiline
+              rows={3}
+              variant="outlined"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseDialog} color="secondary">
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              color="primary" 
+              variant="contained"
+              disabled={actionLoading.id === (dialogMode === 'add' ? 'new' : editingTask?._id)}
+              startIcon={actionLoading.id === (dialogMode === 'add' ? 'new' : editingTask?._id) ? <CircularProgress size={20} /> : null}
+            >
+              {dialogMode === 'add' ? 'Add Task' : 'Save Changes'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}

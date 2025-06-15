@@ -70,6 +70,11 @@ describe('TodoList Component', () => {
       expect(screen.getByText('Test Task 1')).toBeInTheDocument();
     });
 
+    // Click add button to open dialog
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /add/i }));
+    });
+
     // Fill in the form
     await act(async () => {
       fireEvent.change(screen.getByLabelText(/task title/i), {
@@ -100,7 +105,63 @@ describe('TodoList Component', () => {
     });
   });
 
-  // Test Case 3: Toggle task completion
+  // Test Case 3: Edit task
+  it('should edit a task successfully', async () => {
+    const updatedTask = {
+      ...mockTasks[0],
+      title: 'Updated Task',
+      description: 'Updated Description'
+    };
+
+    // Mock PATCH request
+    axios.patch.mockResolvedValue({ data: updatedTask });
+
+    await act(async () => {
+      render(<TodoList />);
+    });
+
+    // Wait for tasks to load
+    await waitFor(() => {
+      expect(screen.getByText('Test Task 1')).toBeInTheDocument();
+    });
+
+    // Click edit button
+    const editButton = screen.getAllByRole('button', { name: /edit/i })[0];
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    // Fill in the edit form
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/task title/i), {
+        target: { value: 'Updated Task' }
+      });
+      fireEvent.change(screen.getByLabelText(/description/i), {
+        target: { value: 'Updated Description' }
+      });
+    });
+
+    // Click save button
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    });
+
+    // Verify API call
+    expect(axios.patch).toHaveBeenCalledWith(
+      `https://todolist-avu8.onrender.com/api/tasks/${mockTasks[0]._id}`,
+      {
+        title: 'Updated Task',
+        description: 'Updated Description'
+      }
+    );
+
+    // Wait for the update
+    await waitFor(() => {
+      expect(screen.getByText('Updated Task')).toBeInTheDocument();
+    });
+  });
+
+  // Test Case 4: Toggle task completion
   it('should toggle task completion status', async () => {
     const updatedTask = {
       ...mockTasks[0],
@@ -120,8 +181,7 @@ describe('TodoList Component', () => {
     });
 
     // Find and click the checkbox for the first task
-    const taskItem = screen.getByText('Test Task 1').closest('li');
-    const checkbox = taskItem.querySelector('input[type="checkbox"]');
+    const checkbox = screen.getAllByRole('checkbox')[0];
     await act(async () => {
       fireEvent.click(checkbox);
     });
@@ -138,7 +198,7 @@ describe('TodoList Component', () => {
     });
   });
 
-  // Test Case 4: Delete task
+  // Test Case 5: Delete task
   it('should delete a task successfully', async () => {
     // Mock DELETE request
     axios.delete.mockResolvedValue({ data: { message: 'Task deleted' } });
@@ -153,8 +213,7 @@ describe('TodoList Component', () => {
     });
 
     // Find and click delete button for the first task
-    const taskItem = screen.getByText('Test Task 1').closest('li');
-    const deleteButton = taskItem.querySelector('button[aria-label="delete"]');
+    const deleteButton = screen.getAllByRole('button', { name: /delete/i })[0];
     await act(async () => {
       fireEvent.click(deleteButton);
     });
@@ -170,7 +229,7 @@ describe('TodoList Component', () => {
     });
   });
 
-  // Test Case 5: Error handling
+  // Test Case 6: Error handling
   it('should handle API errors gracefully', async () => {
     // Mock failed API request
     axios.get.mockRejectedValue(new Error('Failed to fetch tasks'));
@@ -181,15 +240,21 @@ describe('TodoList Component', () => {
 
     // Wait for error message
     await waitFor(() => {
-      const alerts = screen.getAllByRole('alert');
-      expect(alerts[0]).toHaveTextContent('Failed to fetch tasks');
+      const errorMessages = screen.getAllByText('Failed to fetch tasks');
+      expect(errorMessages.length).toBeGreaterThan(0);
+      expect(errorMessages[0]).toBeInTheDocument();
     });
   });
 
-  // Test Case 6: Form validation
+  // Test Case 7: Form validation
   it('should not submit empty task title', async () => {
     await act(async () => {
       render(<TodoList />);
+    });
+
+    // Click add button to open dialog
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /add/i }));
     });
 
     // Try to submit empty form
@@ -201,7 +266,7 @@ describe('TodoList Component', () => {
     expect(axios.post).not.toHaveBeenCalled();
   });
 
-  // Test Case 7: Loading state
+  // Test Case 8: Loading state
   it('should show loading indicator while fetching tasks', async () => {
     // Delay the API response
     axios.get.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ data: mockTasks }), 100)));
@@ -211,11 +276,11 @@ describe('TodoList Component', () => {
     });
 
     // Check for loading indicator
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
 
     // Wait for loading to complete
     await waitFor(() => {
-      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument();
     });
   });
 }); 
