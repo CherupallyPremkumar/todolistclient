@@ -9,25 +9,35 @@ import {
   CircularProgress,
   Container,
   Alert,
-  Snackbar
+  Snackbar,
+  useTheme,
+  alpha,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Checkbox,
+  Zoom
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import { Delete as DeleteIcon, Edit as EditIcon, Save as SaveIcon } from '@mui/icons-material';
 import axios from 'axios';
-import TodoItem from './TodoItem';
 
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5003';
+const BASE_URL = 'https://todolist-avu8.onrender.com';
 const API_URL = `${BASE_URL}/api/tasks`;
 
 const TodoList = () => {
+  const theme = useTheme();
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState({ title: '', description: '' });
+  const [editingTask, setEditingTask] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success'
   });
+  const [actionLoading, setActionLoading] = useState({ id: null, action: null });
 
   useEffect(() => {
     fetchTasks();
@@ -35,75 +45,138 @@ const TodoList = () => {
 
   const fetchTasks = async () => {
     try {
+      setLoading(true);
       const response = await axios.get(API_URL);
       setTasks(response.data);
-      setLoading(false);
+      setError('');
     } catch (err) {
       setError('Failed to fetch tasks');
-      setLoading(false);
       showSnackbar('Failed to fetch tasks', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewTask(prev => ({ ...prev, [name]: value }));
+    if (editingTask) {
+      setEditingTask({ ...editingTask, [name]: value });
+    } else {
+      setNewTask({ ...newTask, [name]: value });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newTask.title.trim()) return;
 
+    const tempId = Date.now().toString();
     try {
+      setActionLoading({ id: 'new', action: 'add' });
+      // Optimistic update
+      const optimisticTask = { ...newTask, _id: tempId, completed: false };
+      setTasks(prev => [...prev, optimisticTask]);
+
       const response = await axios.post(API_URL, newTask);
-      setTasks(prev => [response.data, ...prev]);
+      
+      // Update with real data
+      setTasks(prev => prev.map(task => task._id === tempId ? response.data : task));
       setNewTask({ title: '', description: '' });
-      showSnackbar('Task added successfully', 'success');
+      showSnackbar('Task added successfully');
     } catch (err) {
+      // Revert optimistic update
+      setTasks(prev => prev.filter(task => task._id !== tempId));
       setError('Failed to add task');
       showSnackbar('Failed to add task', 'error');
+    } finally {
+      setActionLoading({ id: null, action: null });
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleToggleComplete = async (taskId) => {
+    const task = tasks.find(t => t._id === taskId);
+    if (!task) return;
+
     try {
-      await axios.delete(`${API_URL}/${id}`);
-      setTasks(prev => prev.filter(task => task._id !== id));
-      showSnackbar('Task deleted successfully', 'success');
+      setActionLoading({ id: taskId, action: 'toggle' });
+      // Optimistic update
+      setTasks(prev => prev.map(t => 
+        t._id === taskId ? { ...t, completed: !t.completed } : t
+      ));
+
+      await axios.patch(`${API_URL}/${taskId}`, {
+        completed: !task.completed
+      });
+      showSnackbar('Task updated successfully');
     } catch (err) {
+      // Revert optimistic update
+      setTasks(prev => prev.map(t => 
+        t._id === taskId ? { ...t, completed: task.completed } : t
+      ));
+      setError('Failed to update task');
+      showSnackbar('Failed to update task', 'error');
+    } finally {
+      setActionLoading({ id: null, action: null });
+    }
+  };
+
+  const handleDelete = async (taskId) => {
+    try {
+      setActionLoading({ id: taskId, action: 'delete' });
+      // Optimistic update
+      setTasks(prev => prev.filter(t => t._id !== taskId));
+
+      await axios.delete(`${API_URL}/${taskId}`);
+      showSnackbar('Task deleted successfully');
+    } catch (err) {
+      // Revert optimistic update
+      fetchTasks();
       setError('Failed to delete task');
       showSnackbar('Failed to delete task', 'error');
+    } finally {
+      setActionLoading({ id: null, action: null });
     }
   };
 
-  const handleToggleComplete = async (id, completed) => {
+  const handleEdit = (task) => {
+    setEditingTask(task);
+    setNewTask({ title: task.title, description: task.description });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingTask.title.trim()) return;
+
     try {
-      const response = await axios.patch(`${API_URL}/${id}`, { completed });
-      setTasks(prev => prev.map(task => 
-        task._id === id ? response.data : task
+      setActionLoading({ id: editingTask._id, action: 'edit' });
+      // Optimistic update
+      setTasks(prev => prev.map(t => 
+        t._id === editingTask._id ? { ...t, ...editingTask } : t
       ));
-      showSnackbar(`Task marked as ${completed ? 'completed' : 'incomplete'}`, 'success');
+
+      await axios.patch(`${API_URL}/${editingTask._id}`, {
+        title: editingTask.title,
+        description: editingTask.description
+      });
+
+      setEditingTask(null);
+      setNewTask({ title: '', description: '' });
+      showSnackbar('Task updated successfully');
     } catch (err) {
-      console.error('Error updating task:', err);
+      // Revert optimistic update
+      fetchTasks();
       setError('Failed to update task');
       showSnackbar('Failed to update task', 'error');
+    } finally {
+      setActionLoading({ id: null, action: null });
     }
   };
 
-  const handleEdit = async (id, updatedTask) => {
-    try {
-      const response = await axios.patch(`${API_URL}/${id}`, updatedTask);
-      setTasks(prev => prev.map(task => 
-        task._id === id ? response.data : task
-      ));
-      showSnackbar('Task updated successfully', 'success');
-    } catch (err) {
-      setError('Failed to update task');
-      showSnackbar('Failed to update task', 'error');
-    }
+  const handleCancelEdit = () => {
+    setEditingTask(null);
+    setNewTask({ title: '', description: '' });
   };
 
-  const showSnackbar = (message, severity) => {
+  const showSnackbar = (message, severity = 'success') => {
     setSnackbar({
       open: true,
       message,
@@ -117,19 +190,19 @@ const TodoList = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+        <CircularProgress data-testid="loading-spinner" />
       </Box>
     );
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4 }}>
+    <Container maxWidth="md">
+      <Typography variant="h3" component="h1" align="center" gutterBottom>
         Todo List
       </Typography>
 
-      <Paper elevation={3} sx={{ p: 3, mb: 4, borderRadius: 2 }}>
+      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
@@ -139,8 +212,7 @@ const TodoList = () => {
             onChange={handleInputChange}
             margin="normal"
             required
-            variant="outlined"
-            sx={{ mb: 2 }}
+            disabled={!!editingTask}
           />
           <TextField
             fullWidth
@@ -151,19 +223,41 @@ const TodoList = () => {
             margin="normal"
             multiline
             rows={2}
-            variant="outlined"
-            sx={{ mb: 2 }}
+            disabled={!!editingTask}
           />
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            fullWidth
-            startIcon={<AddIcon />}
-            sx={{ mt: 2, py: 1.5 }}
-          >
-            Add Task
-          </Button>
+          <Box mt={2} display="flex" gap={1}>
+            {editingTask ? (
+              <>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSaveEdit}
+                  disabled={actionLoading.id === editingTask._id}
+                  startIcon={actionLoading.id === editingTask._id ? <CircularProgress size={20} /> : <SaveIcon />}
+                >
+                  Save
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleCancelEdit}
+                  disabled={actionLoading.id === editingTask._id}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={actionLoading.id === 'new'}
+                startIcon={actionLoading.id === 'new' ? <CircularProgress size={20} /> : null}
+              >
+                Add Task
+              </Button>
+            )}
+          </Box>
         </form>
       </Paper>
 
@@ -174,14 +268,61 @@ const TodoList = () => {
       )}
 
       <List>
-        {tasks.map(task => (
-          <TodoItem
+        {tasks.map((task) => (
+          <ListItem
             key={task._id}
-            task={task}
-            onDelete={handleDelete}
-            onToggleComplete={handleToggleComplete}
-            onEdit={handleEdit}
-          />
+            component={Paper}
+            elevation={2}
+            sx={{ mb: 1 }}
+          >
+            <Checkbox
+              edge="start"
+              checked={task.completed}
+              onChange={() => handleToggleComplete(task._id)}
+              disabled={actionLoading.id === task._id}
+            />
+            <ListItemText
+              primary={
+                <Typography
+                  variant="h6"
+                  sx={{
+                    textDecoration: task.completed ? 'line-through' : 'none',
+                    color: task.completed ? 'text.secondary' : 'text.primary'
+                  }}
+                >
+                  {task.title}
+                </Typography>
+              }
+              secondary={task.description}
+            />
+            <ListItemSecondaryAction>
+              <IconButton
+                edge="end"
+                aria-label="edit"
+                onClick={() => handleEdit(task)}
+                disabled={actionLoading.id === task._id}
+                sx={{ mr: 1 }}
+              >
+                {actionLoading.id === task._id && actionLoading.action === 'edit' ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  <EditIcon />
+                )}
+              </IconButton>
+              <IconButton
+                edge="end"
+                aria-label="delete"
+                onClick={() => handleDelete(task._id)}
+                disabled={actionLoading.id === task._id}
+              >
+                {actionLoading.id === task._id && actionLoading.action === 'delete' ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  <DeleteIcon />
+                )}
+              </IconButton>
+            </ListItemSecondaryAction>
+          </ListItem>
         ))}
       </List>
 
@@ -191,11 +332,7 @@ const TodoList = () => {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

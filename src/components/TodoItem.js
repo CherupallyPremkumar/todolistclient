@@ -9,7 +9,9 @@ import {
   Typography,
   TextField,
   Box,
-  Tooltip
+  Tooltip,
+  useTheme,
+  alpha
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -17,6 +19,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 
 const TodoItem = ({ task, onDelete, onToggleComplete, onEdit }) => {
+  const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState({
     title: task.title,
@@ -49,21 +52,29 @@ const TodoItem = ({ task, onDelete, onToggleComplete, onEdit }) => {
     <Paper
       elevation={2}
       sx={{
-        mb: 2,
-        backgroundColor: task.completed ? '#f5f5f5' : 'white',
+        backgroundColor: task.completed 
+          ? alpha(theme.palette.background.paper, 0.7)
+          : alpha(theme.palette.background.paper, 0.9),
         transition: 'all 0.3s ease',
         '&:hover': {
           transform: 'translateY(-2px)',
           boxShadow: 3
-        }
+        },
+        borderRadius: 2,
+        overflow: 'hidden'
       }}
     >
-      <ListItem>
+      <ListItem sx={{ py: 2 }}>
         <Checkbox
           edge="start"
           checked={task.completed}
           onChange={() => onToggleComplete(task._id, !task.completed)}
-          sx={{ mr: 1 }}
+          sx={{ 
+            mr: 1,
+            '&.Mui-checked': {
+              color: theme.palette.primary.main
+            }
+          }}
         />
         {isEditing ? (
           <Box sx={{ width: '100%', mr: 2 }}>
@@ -74,7 +85,14 @@ const TodoItem = ({ task, onDelete, onToggleComplete, onEdit }) => {
               onChange={handleInputChange}
               margin="dense"
               size="small"
-              sx={{ mb: 1 }}
+              sx={{ 
+                mb: 1,
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': {
+                    borderColor: theme.palette.primary.main,
+                  },
+                },
+              }}
             />
             <TextField
               fullWidth
@@ -85,6 +103,13 @@ const TodoItem = ({ task, onDelete, onToggleComplete, onEdit }) => {
               size="small"
               multiline
               rows={2}
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': {
+                    borderColor: theme.palette.primary.main,
+                  },
+                },
+              }}
             />
           </Box>
         ) : (
@@ -95,7 +120,8 @@ const TodoItem = ({ task, onDelete, onToggleComplete, onEdit }) => {
                 sx={{
                   textDecoration: task.completed ? 'line-through' : 'none',
                   color: task.completed ? 'text.secondary' : 'text.primary',
-                  fontWeight: 'medium'
+                  fontWeight: 'medium',
+                  fontSize: '1.1rem'
                 }}
               >
                 {task.title}
@@ -108,7 +134,8 @@ const TodoItem = ({ task, onDelete, onToggleComplete, onEdit }) => {
                   color="text.secondary"
                   sx={{
                     textDecoration: task.completed ? 'line-through' : 'none',
-                    mt: 0.5
+                    mt: 0.5,
+                    opacity: task.completed ? 0.7 : 1
                   }}
                 >
                   {task.description}
@@ -125,7 +152,13 @@ const TodoItem = ({ task, onDelete, onToggleComplete, onEdit }) => {
                   edge="end"
                   aria-label="save"
                   onClick={handleSave}
-                  sx={{ mr: 1 }}
+                  sx={{ 
+                    mr: 1,
+                    color: theme.palette.primary.main,
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.1)
+                    }
+                  }}
                 >
                   <SaveIcon />
                 </IconButton>
@@ -135,7 +168,13 @@ const TodoItem = ({ task, onDelete, onToggleComplete, onEdit }) => {
                   edge="end"
                   aria-label="cancel"
                   onClick={handleCancel}
-                  sx={{ mr: 1 }}
+                  sx={{ 
+                    mr: 1,
+                    color: theme.palette.error.main,
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.error.main, 0.1)
+                    }
+                  }}
                 >
                   <CancelIcon />
                 </IconButton>
@@ -148,7 +187,13 @@ const TodoItem = ({ task, onDelete, onToggleComplete, onEdit }) => {
                   edge="end"
                   aria-label="edit"
                   onClick={handleEdit}
-                  sx={{ mr: 1 }}
+                  sx={{ 
+                    mr: 1,
+                    color: theme.palette.primary.main,
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.1)
+                    }
+                  }}
                 >
                   <EditIcon />
                 </IconButton>
@@ -158,6 +203,12 @@ const TodoItem = ({ task, onDelete, onToggleComplete, onEdit }) => {
                   edge="end"
                   aria-label="delete"
                   onClick={() => onDelete(task._id)}
+                  sx={{ 
+                    color: theme.palette.error.main,
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.error.main, 0.1)
+                    }
+                  }}
                 >
                   <DeleteIcon />
                 </IconButton>
