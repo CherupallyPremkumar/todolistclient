@@ -15,7 +15,8 @@ import AddIcon from '@mui/icons-material/Add';
 import axios from 'axios';
 import TodoItem from './TodoItem';
 
-const API_URL = 'https://todolist-avu8.onrender.com/api/tasks';
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5003';
+const API_URL = `${BASE_URL}/api/tasks`;
 
 const TodoList = () => {
   const [tasks, setTasks] = useState([]);
