@@ -15,7 +15,7 @@ import AddIcon from '@mui/icons-material/Add';
 import axios from 'axios';
 import TodoItem from './TodoItem';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5003/api/tasks';
+const API_URL = 'https://todolist-avu8.onrender.com/api/tasks';
 
 const TodoList = () => {
   const [tasks, setTasks] = useState([]);
@@ -83,6 +83,7 @@ const TodoList = () => {
       ));
       showSnackbar(`Task marked as ${completed ? 'completed' : 'incomplete'}`, 'success');
     } catch (err) {
+      console.error('Error updating task:', err);
       setError('Failed to update task');
       showSnackbar('Failed to update task', 'error');
     }
