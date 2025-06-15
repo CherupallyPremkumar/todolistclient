@@ -197,12 +197,22 @@ const TodoList = () => {
   }
 
   return (
-    <Container maxWidth="md">
-      <Typography variant="h3" component="h1" align="center" gutterBottom>
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      <Typography 
+        variant="h3" 
+        component="h1" 
+        align="center" 
+        gutterBottom
+        sx={{ 
+          mb: 4,
+          fontWeight: 'bold',
+          color: 'primary.main'
+        }}
+      >
         Todo List
       </Typography>
 
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+      <Paper elevation={3} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
@@ -213,6 +223,8 @@ const TodoList = () => {
             margin="normal"
             required
             disabled={!!editingTask}
+            sx={{ mb: 2 }}
+            variant="outlined"
           />
           <TextField
             fullWidth
@@ -224,8 +236,10 @@ const TodoList = () => {
             multiline
             rows={2}
             disabled={!!editingTask}
+            sx={{ mb: 2 }}
+            variant="outlined"
           />
-          <Box mt={2} display="flex" gap={1}>
+          <Box mt={2} display="flex" gap={2}>
             {editingTask ? (
               <>
                 <Button
@@ -234,6 +248,7 @@ const TodoList = () => {
                   onClick={handleSaveEdit}
                   disabled={actionLoading.id === editingTask._id}
                   startIcon={actionLoading.id === editingTask._id ? <CircularProgress size={20} /> : <SaveIcon />}
+                  sx={{ minWidth: 100 }}
                 >
                   Save
                 </Button>
@@ -242,6 +257,7 @@ const TodoList = () => {
                   color="secondary"
                   onClick={handleCancelEdit}
                   disabled={actionLoading.id === editingTask._id}
+                  sx={{ minWidth: 100 }}
                 >
                   Cancel
                 </Button>
@@ -253,6 +269,7 @@ const TodoList = () => {
                 color="primary"
                 disabled={actionLoading.id === 'new'}
                 startIcon={actionLoading.id === 'new' ? <CircularProgress size={20} /> : null}
+                sx={{ minWidth: 120 }}
               >
                 Add Task
               </Button>
@@ -262,24 +279,42 @@ const TodoList = () => {
       </Paper>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ 
+            mb: 3,
+            borderRadius: 2
+          }}
+        >
           {error}
         </Alert>
       )}
 
-      <List>
+      <List sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {tasks.map((task) => (
           <ListItem
             key={task._id}
             component={Paper}
             elevation={2}
-            sx={{ mb: 1 }}
+            sx={{ 
+              borderRadius: 2,
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: 3
+              }
+            }}
           >
             <Checkbox
               edge="start"
               checked={task.completed}
               onChange={() => handleToggleComplete(task._id)}
               disabled={actionLoading.id === task._id}
+              sx={{
+                '&.Mui-checked': {
+                  color: 'primary.main'
+                }
+              }}
             />
             <ListItemText
               primary={
@@ -287,21 +322,39 @@ const TodoList = () => {
                   variant="h6"
                   sx={{
                     textDecoration: task.completed ? 'line-through' : 'none',
-                    color: task.completed ? 'text.secondary' : 'text.primary'
+                    color: task.completed ? 'text.secondary' : 'text.primary',
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   {task.title}
                 </Typography>
               }
-              secondary={task.description}
+              secondary={
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: task.completed ? 'text.secondary' : 'text.primary',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {task.description}
+                </Typography>
+              }
             />
             <ListItemSecondaryAction>
               <IconButton
                 edge="end"
                 aria-label="edit"
                 onClick={() => handleEdit(task)}
-                disabled={actionLoading.id === task._id}
-                sx={{ mr: 1 }}
+                disabled={actionLoading.id === task._id || task.completed}
+                sx={{ 
+                  mr: 1,
+                  color: 'primary.main',
+                  '&:hover': {
+                    backgroundColor: 'primary.light',
+                    color: 'white'
+                  }
+                }}
               >
                 {actionLoading.id === task._id && actionLoading.action === 'edit' ? (
                   <CircularProgress size={24} />
@@ -313,7 +366,14 @@ const TodoList = () => {
                 edge="end"
                 aria-label="delete"
                 onClick={() => handleDelete(task._id)}
-                disabled={actionLoading.id === task._id}
+                disabled={actionLoading.id === task._id || task.completed}
+                sx={{
+                  color: 'error.main',
+                  '&:hover': {
+                    backgroundColor: 'error.light',
+                    color: 'white'
+                  }
+                }}
               >
                 {actionLoading.id === task._id && actionLoading.action === 'delete' ? (
                   <CircularProgress size={24} />
@@ -332,7 +392,14 @@ const TodoList = () => {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity} 
+          sx={{ 
+            width: '100%',
+            borderRadius: 2
+          }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
